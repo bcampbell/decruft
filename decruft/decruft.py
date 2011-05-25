@@ -281,7 +281,7 @@ class Document:
                 content_length = len(el.text_content()) # Count the text length excluding any surrounding whitespace
                 link_density = self.get_link_density(el)
                 parent_node = el.getparent()
-                if parent_node:
+                if parent_node is not None:
                     if parent_node in candidates:
                         content_score = candidates[parent_node]['content_score']
                     else:
@@ -326,7 +326,7 @@ class Document:
                         height = img.get('height')
                         width = img.get('width')
                         self.debug ("height %s width %s" %(repr(height), repr(width)))
-                        if (height and int(height) >= 50) or (width and int(width) >= 50):
+                        if (height and int(re.sub(r'.*(\d+).*',r'\1',height)) >= 50) or (width and int(re.sub(r'.*(\d+).*',r'\1',width)) >= 50):
                             valid_img = True
                             self.debug("valid image" + tounicode(img))
                             break
