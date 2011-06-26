@@ -3,7 +3,7 @@ from BeautifulSoup import NavigableString
 from page_parser import parse, get_title, get_body, Unparseable
 import logging
 import re
-from lxml.etree import tostring, tounicode
+from lxml.etree import tostring, tounicode, iterwalk
 from lxml.html.clean import Cleaner
 import traceback
 import sys
@@ -229,7 +229,9 @@ class Document:
 
     def remove_unlikely_candidates(self):
 
-        for elem in self.html.iter():
+        context = iterwalk(self.html)
+        for action,elem in context:
+
             s = "%s%s" % (elem.get('class', ''), elem.get('id', ''))
             self.debug(s)
             if REGEXES['unlikelyCandidatesRe'].search(s) and (not REGEXES['okMaybeItsACandidateRe'].search(s)) and elem.tag != 'body':
