@@ -28,6 +28,14 @@ def describe(node):
     return "%s#%s.%s" % (
         node.tag, node.get('id', ''), node.get('class',''))
 
+def snippet(node,n=40):
+    """ return one-liner snippet of the text under the node """
+    txt = node.text_content()
+    txt = u' '.join(txt.split())
+    if len(txt)>n:
+        txt = txt[:n] + u"..."
+    return txt
+
 
 def log_candidates(candidates, print_format=""):
     for candidate, value in candidates.items():
@@ -133,12 +141,13 @@ class Document:
         if output is not None: output.append(best_candidate['elem'])
         return output
 
+
     def select_best_candidate(self, candidates):
         sorted_candidates = sorted(candidates.values(), key=lambda x: x['content_score'], reverse=True)
         self.debug("Top 5 candidates:")
         for candidate in sorted_candidates[:5]:
             elem = candidate['elem']
-            self.debug("Candidate %s with score %s" % (describe(elem), candidate['content_score']))
+            self.debug("Candidate %s with score %s '%s...'" % (describe(elem), candidate['content_score'], snippet(elem)))
 
         if len(sorted_candidates) == 0:
             return None
@@ -146,10 +155,13 @@ class Document:
         self.debug("Best candidate %s with score %s" % (describe(best_candidate['elem']), best_candidate['content_score']))
         return best_candidate
 
+
     def get_link_density(self, elem):
-        link_length = len("".join([i.text or "" for i in elem.findall(".//a")]))
+        link_length = len("".join([i.text_content() or "" for i in elem.findall(".//a")]))
         text_length = len(elem.text_content())
         return float(link_length) / max(text_length, 1)
+
+
 
     def score_paragraphs(self, min_text_length):
         candidates = {}
@@ -187,8 +199,10 @@ class Document:
         # Scale the final candidates score based on link density. Good content should have a
         # relatively small link density (5% or less) and be mostly unaffected by this operation.
         for elem, candidate in candidates.items():
-            candidate['content_score'] *= (1 - self.get_link_density(elem))
-            self.debug("candidate %s scored %s" % (describe(elem), candidate['content_score']))
+            link_density = self.get_link_density(elem)
+            candidate['content_score'] *= (1 - link_density)
+            if candidate['content_score'] > 0:
+                self.debug("candidate %s scored %s (linkd: %s) '%s'" % (describe(elem), candidate['content_score'], link_density, snippet(elem,30)))
 
         return candidates
 
@@ -409,13 +423,17 @@ def main():
     from optparse import OptionParser
     parser = OptionParser(usage="%prog: [options] [file]")
     parser.add_option('-v', '--verbose', action='store_true')
+    parser.add_option('-q', '--quiet', action='store_true')
     parser.add_option('-u', '--url', help="use URL instead of a local file")
     (options, args) = parser.parse_args()
     
     if not (len(args) == 1 or options.url):
         parser.print_help()
         sys.exit(1)
-    logging.basicConfig(level=logging.INFO)
+    if options.verbose:
+        logging.basicConfig(level=logging.DEBUG)
+    else:
+        logging.basicConfig(level=logging.INFO)
 
     file = None
     if options.url:
@@ -424,7 +442,10 @@ def main():
     else:
         file = open(args[0])
     try:
-        print Document(file.read(), debug=options.verbose).summary().encode('ascii','ignore')
+        out = Document(file.read(), debug=options.verbose).summary()
+        if not options.quiet:
+            print out.encode('ascii','ignore')
+
     finally:
         file.close()
 
